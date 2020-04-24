@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,11 +18,18 @@ namespace uCompositer
         {
             try
             {
+                if(args?.Length < 1)
+                {
+                    Console.Write($"Metafile path? :");
+                    args = new [] { Console.ReadLine().Trim() };
+                }
                 Console.WriteLine($"Download by metafile {args[0]}");
 
-                var dlFiles = File.ReadAllLines(args[0]).Select((url, i) =>
+                var dlFiles = File.ReadAllLines(args[0]).Select((line, i) =>
                 {
-                    var dst = Path.Combine(Path.GetTempPath(), session + $"_{i}.webm"); ;
+                    var url = line.Split(" ").First();
+                    var ext = $"." + (line.Split(" ").ElementAtOrDefault(1) ?? "webm");
+                    var dst = Path.Combine(Path.GetTempPath(), session + $"_{i}{ext}"); ;
                     Download(url, dst);
                     return dst;
                 }).ToArray();
@@ -64,7 +72,7 @@ namespace uCompositer
             var pInfo = new ProcessStartInfo()
             {
                 FileName = "ffmpeg",
-                Arguments = $"-y -i \"{mediaFiles[0]}\" -i \"{mediaFiles[1]}\" -c copy \"{dstFile}.mkv\"",
+                Arguments = $"-y {mediaFiles.Select(f => $"-i \"{mediaFiles[0]}\"").ToStringJoin(" ")} -c copy \"{dstFile}.mkv\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -130,5 +138,6 @@ namespace uCompositer
             return t.Result;
         }
 
+        static string ToStringJoin<T>(this IEnumerable<T> collection, string separator) => string.Join(separator, collection.Select(e => e.ToString()));
     }
 }
