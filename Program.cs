@@ -72,11 +72,12 @@ namespace uCompositer
             var pInfo = new ProcessStartInfo()
             {
                 FileName = "ffmpeg",
-                Arguments = $"-y {mediaFiles.Select(f => $"-i \"{mediaFiles[0]}\"").ToStringJoin(" ")} -c copy \"{dstFile}.mkv\"",
+                Arguments = $"-y {mediaFiles.Select(f => $"-i \"{f}\"").ToStringJoin(" ")} -c copy \"{dstFile}.mkv\"",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
             };
+            Console.WriteLine($"{pInfo.FileName} {pInfo.Arguments}");
             var p = Process.Start(pInfo);
 
             while (!p.HasExited)
