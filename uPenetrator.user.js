@@ -1,84 +1,75 @@
 // ==UserScript==
 // @name         uPenetrator
-// @namespace    http://tampermonkey.net/
-// @version      0.1
-// @description  try to take over the world!
+// @namespace    https://github.com/wallstudio/uCompositer
+// @version      0.2
+// @description  
 // @author       You
 // @match        https://www.youtube.com/*
 // @grant        none
+// @require      https://raw.githubusercontent.com/wallstudio/UserScriptLibrary/master/xhrFetchInjection.js
+// @require      https://raw.githubusercontent.com/wallstudio/UserScriptLibrary/master/download.js
 // ==/UserScript==
 
 (function() {
-    'use strict';
+	'use strict';
 
-    let video = null;
-    let audio = null;
+	console.log('uPenetrator');
 
-    let insert = function(type, url)
-    {
-        let _ref = document.getElementById("columns");
-        if(_ref == null)
-        {
-            window.setTimeout(() => insert(type, url), 1);
-            return "Retry after 1s";
-        }
+	/** @type {Map<string, string>} */
+	const media = new Map();
+	/** @type {Element} */
+	let button;
+	const icon = `
+		<svg version="1.1" width="100%" height="100%" viewBox="-200 -200 912 912">
+			<style type="text/css">
+				.st0{fill:#4B4B4B;}
+			</style>
+			<g>
+				<path class="st0" d="M243.591,309.362c3.272,4.317,7.678,6.692,12.409,6.692c4.73,0,9.136-2.376,12.409-6.689l89.594-118.094
+					c3.348-4.414,4.274-8.692,2.611-12.042c-1.666-3.35-5.631-5.198-11.168-5.198H315.14c-9.288,0-16.844-7.554-16.844-16.84V59.777
+					c0-11.04-8.983-20.027-20.024-20.027h-44.546c-11.04,0-20.022,8.987-20.022,20.027v97.415c0,9.286-7.556,16.84-16.844,16.84
+					h-34.305c-5.538,0-9.503,1.848-11.168,5.198c-1.665,3.35-0.738,7.628,2.609,12.046L243.591,309.362z" style="fill: rgb(255, 255, 255);"></path>
+				<path class="st0" d="M445.218,294.16v111.304H66.782V294.16H0v152.648c0,14.03,11.413,25.443,25.441,25.443h461.118
+					c14.028,0,25.441-11.413,25.441-25.443V294.16H445.218z" style="fill: rgb(255, 255, 255);"></path>
+			</g>
+		</svg>`;
+	
+	injectXHR((_url, args) =>
+	{
+		/** @type {string} */
+		const url = _url;
 
-        // Re-Create
-        let _new = document.getElementById("junk_c");
-        if(_new != null) _new.remove();
-        _new = document.createElement("div");
-        _new.id += "junk_c";
-        _ref.parentNode.insertBefore(_new, _ref);
+		if(!url.includes("videoplayback"))
+		{
+			return args;
+		}
+		if(!location.href.match(/youtube\.com\/watch/))
+		{
+			return args;
+		}
 
-        if(type == "VIDEO") video = url;
-        if(type == "AUDIO") audio = url;
-        if(video != null && audio != null)
-        {
-            let data = 'data:text/plain,' + encodeURIComponent(`${video}\n${audio}`);
-            _new.innerHTML += ` <a id="junk_c_data" href='${data}' download="${document.title}.ucinmeta">${document.title}</a> `;
-        }
+		const filteredUrl = url.split("&").filter(s => !s.match(/(range|rn|rbuf)=/)).join("&");
+		const mime = filteredUrl.match(/mime=(\w+)/)[1];
+		if(!mime)
+		{
+			return args;
+		}
+		media.set(mime, filteredUrl);
 
-        return _new;
-    }
+		button?.remove();
+		const subButton = document.getElementsByClassName('ytp-subtitles-button')[0];
+		button = subButton.cloneNode(true);
+		button.setAttribute('title', "DL");
+		button.innerHTML = icon;
+		subButton.parentElement.insertBefore(button, subButton);
+		button.addEventListener('click', () =>
+		{
+			console.log(Array.from(media.entries()).join('\n'))
+			const body = Array.from(media.values()).join('\n');
+			downloadText(`${document.title}.ucinmeta`, body)
+		});
 
-    let proc = function(url)
-    {
-        try
-        {
-            if(!location.href.match(/youtube\.com\/watch/))
-            {
-                console.log("No watch page");
-                return;
-            }
-
-            let sp = url.split("&");
-            sp = sp
-                .map(s => s.startsWith("range=") ? "" : s)
-                .map(s => s.startsWith("rn=") ? "" : s)
-                .map(s => s.startsWith("rbuf=") ? "" : s);
-            let isVideo = sp.some(s => s.startsWith("mime=video"));
-            let isAudio = sp.some(s => s.startsWith("mime=audio"));
-
-            if(!isVideo && !isAudio)
-            {
-                return;
-            }
-
-            console.log(insert(isVideo ? "VIDEO" : "AUDIO", sp.join("&")));
-        }
-        catch(e)
-        {
-            console.log(e);
-        }
-    }
-
-    var base_open = XMLHttpRequest.prototype.open;
-    XMLHttpRequest.prototype.open = function(method, url, async, user, password){
-        if(url.includes("videoplayback"))
-        {
-            proc(url);
-        }
-        base_open.apply(this, arguments);
-    }
+		return args;
+	});
 
 })();

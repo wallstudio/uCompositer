@@ -94,6 +94,7 @@ namespace uCompositer
 
         static void Download(string url, string dst)
         {
+            Console.WriteLine($"Download {url}");
             Console.WriteLine($"Download {dst}");
 
             using (var cli = new HttpClient())
