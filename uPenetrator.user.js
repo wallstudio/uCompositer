@@ -60,6 +60,7 @@
 		const subButton = document.getElementsByClassName('ytp-subtitles-button')[0];
 		button = subButton.cloneNode(true);
 		button.setAttribute('title', "DL");
+		button.style.display = "";
 		button.innerHTML = icon;
 		subButton.parentElement.insertBefore(button, subButton);
 		button.addEventListener('click', () =>
