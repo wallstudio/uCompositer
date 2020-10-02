@@ -11,8 +11,6 @@
 // ==/UserScript==
 
 (function() {
-	'use strict';
-
 	console.log('uPenetrator');
 
 	/** @type {Map<string, string>} */
