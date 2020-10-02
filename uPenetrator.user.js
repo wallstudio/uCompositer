@@ -34,7 +34,7 @@
 			</g>
 		</svg>`;
 	
-	injectXHR((_url, args) =>
+	RequestInjector.injectXHR((_url, args) =>
 	{
 		/** @type {string} */
 		const url = _url;
@@ -56,19 +56,9 @@
 		}
 		media.set(mime, filteredUrl);
 
+		console.log(Array.from(media.entries()).join('\n'))
 		button?.remove();
-		const subButton = document.getElementsByClassName('ytp-subtitles-button')[0];
-		button = subButton.cloneNode(true);
-		button.setAttribute('title', "DL");
-		button.style.display = "";
-		button.innerHTML = icon;
-		subButton.parentElement.insertBefore(button, subButton);
-		button.addEventListener('click', () =>
-		{
-			console.log(Array.from(media.entries()).join('\n'))
-			const body = Array.from(media.values()).join('\n');
-			downloadText(`${document.title}.ucinmeta`, body)
-		});
+		button = Youtube.addControlButton('DL', icon, () => IO.saveText(`${document.title}.ucmpr`, 'ucmpr', Array.from(media.values()).join('\n')));
 
 		return args;
 	});
