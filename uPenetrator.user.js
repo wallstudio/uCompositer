@@ -7,10 +7,13 @@
 // @match        https://www.youtube.com/*
 // @grant        none
 // @require      https://raw.githubusercontent.com/wallstudio/UserScriptLibrary/master/xhrFetchInjection.js
-// @require      https://raw.githubusercontent.com/wallstudio/UserScriptLibrary/master/download.js
+// @require      https://raw.githubusercontent.com/wallstudio/UserScriptLibrary/master/youtube.js
+// @require      https://raw.githubusercontent.com/wallstudio/UserScriptLibrary/master/io.js
 // ==/UserScript==
 
 (function() {
+	'use strict';
+
 	console.log('uPenetrator');
 
 	/** @type {Map<string, string>} */
