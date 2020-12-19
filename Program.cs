@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Runtime.Serialization;
+using System.Text;
 using System.Threading.Tasks;
 
 namespace uCompositer
@@ -16,47 +17,50 @@ namespace uCompositer
      
         static void Main(string[] args)
         {
+            Console.Write($"Metafile path? :");
+            var file = args.ElementAtOrDefault(0) ?? Console.ReadLine().Trim("\"\t ".ToCharArray());
+            Console.WriteLine($"Download by metafile {file}");
+            var dstFile = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                "Downloads", Path.GetFileNameWithoutExtension(file));
             try
             {
-                if(args?.Length < 1)
+                switch(File.ReadAllLines(file).First())
                 {
-                    Console.Write($"Metafile path? :");
-                    args = new [] { Console.ReadLine().Trim() };
-                }
-                Console.WriteLine($"Download by metafile {args[0]}");
-
-                var dlFiles = File.ReadAllLines(args[0]).Select((line, i) =>
-                {
-                    var url = line.Split(" ").First();
-                    var ext = $"." + (line.Split(" ").ElementAtOrDefault(1) ?? "webm");
-                    var dst = Path.Combine(Path.GetTempPath(), session + $"_{i}{ext}"); ;
-                    Download(url, dst);
-                    return dst;
-                }).ToArray();
-
-                try
-                {
-                    var dstFile = Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                        "Downloads", Path.GetFileNameWithoutExtension(args[0]));
-                    MergeMedias(dlFiles, dstFile, Console.WriteLine);
-                    Console.WriteLine("Completed!");
-                    for (int i = 5; i >= 0; i--)
-                    {
-                        Console.WriteLine(i);
-                        Task.Delay(1000).Wait();
-                    }
-                    dlFiles.ToList().ForEach(f => File.Delete(f));
-                }
-                catch(StandartErrorException)
-                {
-                    Process.Start("explorer", $"/select,\"{dlFiles.First()}\"");
-                    throw;
+                    case "#EXTM3U":
+                        ConcatM3u8(file, dstFile, Console.WriteLine);
+                        break;
+                    default:
+                        var dlFiles = File.ReadAllLines(file).Select((line, i) =>
+                        {
+                            var url = line.Split(" ").First();
+                            var ext = $"." + (line.Split(" ").ElementAtOrDefault(1) ?? "webm");
+                            var dst = Path.Combine(Path.GetTempPath(), session + $"_{i}{ext}"); ;
+                            Download(url, dst);
+                            return dst;
+                        }).ToArray();
+                        try
+                        {
+                            MergeMedias(dlFiles, dstFile, Console.WriteLine);
+                            Console.WriteLine("Completed!");
+                            for (int i = 5; i >= 0; i--)
+                            {
+                                Console.WriteLine(i);
+                                Task.Delay(1000).Wait();
+                            }
+                            dlFiles.ToList().ForEach(f => File.Delete(f));
+                        }
+                        catch(StandartErrorException)
+                        {
+                            Process.Start("explorer", $"/select,\"{dlFiles.First()}\"");
+                            throw;
+                        }
+                        break;
                 }
             }
             catch (Exception e)
             {
-                File.WriteAllText(args[0] + ".error", e.ToString());
+                File.WriteAllText(file + ".error", e.ToString());
                 Console.Error.WriteLine(e);
                 Console.ReadKey();
             }
@@ -68,11 +72,17 @@ namespace uCompositer
         }
 
         static void MergeMedias(string[] mediaFiles, string dstFile, Action<string> onStdout)
+            => FfmpegCommand($"-y {mediaFiles.Select(f => $"-i \"{f}\"").ToStringJoin(" ")} -c copy \"{dstFile}.mkv\"", _ => {}, _ => {});
+
+        static void ConcatM3u8(string file, string dstFile, Action<string> onStdout)
+            => FfmpegCommand($"-protocol_whitelist file,http,https,tcp,tls,crypto  -i \"{file}\" -c copy \"{dstFile}\".mp4", onStdout, onStdout);
+
+        static void FfmpegCommand(string arguments, Action<string> onStdout, Action<string> onStderror)
         {
             var pInfo = new ProcessStartInfo()
             {
                 FileName = "ffmpeg",
-                Arguments = $"-y {mediaFiles.Select(f => $"-i \"{f}\"").ToStringJoin(" ")} -c copy \"{dstFile}.mkv\"",
+                Arguments = arguments,
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
@@ -80,15 +90,27 @@ namespace uCompositer
             Console.WriteLine($"{pInfo.FileName} {pInfo.Arguments}");
             var p = Process.Start(pInfo);
 
-            while (!p.HasExited)
+            Task.Run(() =>
             {
-                onStdout?.Invoke(p.StandardOutput.ReadLine());
-            }
-
-            var error = p.StandardError.ReadToEnd();
-            if(string.IsNullOrEmpty(error.Trim()))
+                while (!p.HasExited)
+                {
+                    onStdout?.Invoke(p.StandardOutput.ReadLine());
+                }
+            });
+            var error = new StringBuilder();
+            Task.Run(() =>
             {
-                throw new StandartErrorException(error);
+                while (!p.HasExited)
+                {
+                    var line = p.StandardError.ReadLine();
+                    error.AppendLine(line);
+                    onStderror?.Invoke(line);
+                }
+            });
+            p.WaitForExit();
+            if(p.ExitCode != 0)
+            {
+                throw new StandartErrorException($"{p.ExitCode}\n\n{error}");
             }
         }
 
@@ -139,6 +161,7 @@ namespace uCompositer
             t.Wait();
             return t.Result;
         }
+
 
         static string ToStringJoin<T>(this IEnumerable<T> collection, string separator) => string.Join(separator, collection.Select(e => e.ToString()));
     }
